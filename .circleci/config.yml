@@ -4,13 +4,6 @@ executors:
     docker:
       - image: circleci/node:12
       - image: rabbitmq:3-management
-        ports:
-        - "4369:4369"
-        - "5671:5671"
-        - "5672:5672"
-        - "25672:25672"
-        - "15671:15671"
-        - "15672:15672"
 
 commands:
   npm-ci:
