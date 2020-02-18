@@ -1,0 +1,11 @@
+version: "3.5"
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "4369"
+      - "5671"
+      - "5672:5672"
+      - "25672"
+      - "15671"
+      - "15672"

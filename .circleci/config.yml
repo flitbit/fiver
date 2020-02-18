@@ -1,0 +1,76 @@
+version: 2.1
+executors:
+  node-12:
+    docker:
+      - image: circleci/node:12
+      - image: rabbitmq:3-management
+        ports:
+        - "4369:4369"
+        - "5671:5671"
+        - "5672:5672"
+        - "25672:25672"
+        - "15671:15671"
+        - "15672:15672"
+
+commands:
+  npm-ci:
+    description: "standard npm-based ci workflow"
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: false
+      - run:
+          name: authorize npm
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+      - run:
+          name: run npm install
+          command: npm install
+      - save_cache:
+          key: dependency-cache-{{ checksum "package.json" }}
+          paths:
+            - ./node_modules
+      - run:
+          name: build & test
+          command: npm run ci
+          when: always
+
+jobs:
+  build-pre:
+    working_directory: ~/repo
+    executor: node-12
+    steps:
+      - npm-ci
+      - run:
+          name: write pre-release npm package
+          command: |
+            sudo npm i -g json
+            PACKAGE_VERSION="$(cat package.json | json version)"
+            BRANCH_NAME="${CIRCLE_BRANCH//[^a-z0-9\-]/-}"
+            npm --no-git-tag-version version ${PACKAGE_VERSION}-${BRANCH_NAME}.$(git rev-parse --short HEAD)
+            npm publish --tag=${BRANCH_NAME}
+
+  build-release:
+    working_directory: ~/repo
+    executor: node-12
+    steps:
+      - npm-ci
+      - run:
+          name: publish npm package
+          command: |
+            npm publish
+
+workflows:
+  version: 2
+  build_deploy:
+    jobs:
+      - build-pre:
+          context: secrets
+      - build-release:
+          context: secrets
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              ignore: /.*/
