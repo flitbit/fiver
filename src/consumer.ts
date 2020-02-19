@@ -9,6 +9,11 @@ import { ConsumerMiddleware } from './consumer-middleware';
 
 const $consumer = Symbol('consumer');
 
+export interface MessageError {
+  error: Error;
+  message: Message;
+}
+
 export class BaseConsumer extends EventEmitter {
   private [$consumer]: Replies.Consume;
   private publisher: Publisher;
@@ -39,11 +44,12 @@ export class BaseConsumer extends EventEmitter {
           });
           return;
         }
+        let msg = new Message(ch, this.publisher, message, consumerAck || false);
         try {
-          const msg = await this.middleware.push(new Message(ch, this.publisher, message, consumerAck || false));
+          msg = await this.middleware.push(msg);
           this.emit('message', msg);
-        } catch (e) {
-          this.emit('error', e);
+        } catch (error) {
+          this.emit('message-error', { error, message: msg });
         }
       },
       options

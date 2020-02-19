@@ -22,12 +22,14 @@ export class ConsumerMiddleware {
       properties: { headers },
     } = msg;
     if (Buffer.isBuffer(content) && headers && headers['x-crc32']) {
-      const crc = crc32(content);
+      const crc = crc32(content).toString();
       if (crc !== headers['x-crc32']) {
         const error = `Calculated CRC doesn't match the message's header: got ${crc}, expected ${headers['x-crc32']}`;
         msg.middlewareLog('error', error);
         throw new Error(error);
       }
+      msg.set('crc32', crc);
+      msg.middlewareLog('debug', `Calculated CRC matches the messages header: ${crc}.`);
     }
     return msg;
   }
@@ -58,9 +60,11 @@ export class ConsumerMiddleware {
       const decodedType = parse(contentType);
       if (decodedType.type === 'application/json') {
         // always attempt to decode json content.
-        const charset = contentType.parameters.charset || 'utf-8';
+        const charset = decodedType.parameters.charset || 'utf-8';
         try {
-          return msg.overrideContent(JSON.parse(content.toString(charset)));
+          const obj = JSON.parse(content.toString(charset));
+          msg.middlewareLog('debug', `transformed to object from ${contentType}`);
+          return msg.overrideContent(obj);
         } catch (err) {
           const error = `${exchange}:${routingKey} unexpected error deserializing JSON data: ${err}`;
           msg.middlewareLog('error', error);
@@ -90,8 +94,10 @@ export class ConsumerMiddleware {
           const encoding = encodings[i].trim();
           if (encoding === 'gzip') {
             overrideContent = gunzipSync(overrideContent);
+            msg.middlewareLog('debug', `processed content encoding ${encoding}`);
           } else if (encoding === 'deflate') {
             overrideContent = inflateSync(overrideContent);
+            msg.middlewareLog('debug', `processed content encoding ${encoding}`);
           } else if (encoding === 'identity') {
             // implicit, fall through
           } else {
@@ -111,5 +117,6 @@ export class ConsumerMiddleware {
         return Promise.reject(e);
       }
     }
+    return msg;
   }
 }
