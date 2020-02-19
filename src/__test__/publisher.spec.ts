@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { Broker, BrokerEvent, BaseConsumer } from '..';
+import { Broker, BrokerEvent, BaseConsumer, Message } from '..';
 
 const uri = process.env.AMQP_URI || 'amqp://guest:guest@localhost:5672/';
 
@@ -48,7 +48,7 @@ describe('Publisher', () => {
       const q = await ch.assertQueue('');
       const messages: string[] = [];
       const consumer = new BaseConsumer(publisher);
-      consumer.on('message', msg => {
+      consumer.on('message', (msg: Message) => {
         const m = `Hello ${msg.content}`;
         messages.push(m);
       });

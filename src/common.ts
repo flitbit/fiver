@@ -8,7 +8,11 @@ export interface BrokerOptions {
 export interface PublisherOptions {
   publisherConfirms?: boolean;
   autoConfirm?: boolean;
-  useDefaultCoercions?: boolean;
+  useDefaultMiddleware?: boolean;
+}
+
+export interface ConsumerOptions {
+  useDefaultMiddleware?: boolean;
 }
 
 export type BrokerEventSource = 'connection' | 'confirmChannel' | 'channel';
@@ -22,4 +26,11 @@ export interface BrokerEvent {
 
 export interface ChannelProvider {
   channel(publisherConfirms?: boolean): Promise<Channel>;
+}
+
+export type LoggingLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface MiddlewareLog {
+  level: LoggingLevel;
+  message: string;
 }

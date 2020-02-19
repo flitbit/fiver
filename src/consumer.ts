@@ -4,6 +4,8 @@ import { Message } from './message';
 import { Publisher } from './publisher';
 import { Options, Replies } from 'amqplib';
 import { EventEmitter } from 'events';
+import { ConsumerOptions } from './common';
+import { ConsumerMiddleware } from './consumer-middleware';
 
 const $consumer = Symbol('consumer');
 
@@ -12,16 +14,21 @@ export class BaseConsumer extends EventEmitter {
   private publisher: Publisher;
   private middleware: Pipeline<Message>;
 
-  constructor(publisher: Publisher) {
+  constructor(publisher: Publisher, options?: ConsumerOptions) {
     super();
     this.publisher = publisher;
-    this.middleware = new Pipeline<Message>();
+    this.middleware =
+      options && options.useDefaultMiddleware
+        ? new Pipeline<Message>().add(ConsumerMiddleware.default)
+        : new Pipeline<Message>();
     // ensure we get the message first.
     this.on('message', this.handler.bind(this));
   }
 
   async consume(queue: string, options?: Options.Consume): Promise<void> {
     const ch = await this.publisher.channel();
+    // resolve the confusing double-negative on acknowledging messages.
+    const consumerAck: boolean = options && !options.noAck;
     this[$consumer] = await ch.consume(
       queue,
       async message => {
@@ -33,7 +40,7 @@ export class BaseConsumer extends EventEmitter {
           return;
         }
         try {
-          const msg = await this.middleware.push(new Message(ch, this.publisher, message));
+          const msg = await this.middleware.push(new Message(ch, this.publisher, message, consumerAck || false));
           this.emit('message', msg);
         } catch (e) {
           this.emit('error', e);

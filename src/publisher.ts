@@ -1,14 +1,9 @@
 import { PublisherOptions, ChannelProvider } from './common';
 import { Pipeline } from 'middles';
-import {
-  PublishOp,
-  publisherEncodeString,
-  publisherEncodeObject,
-  publisherContentEncoding,
-  parseDestinations,
-} from './util';
+import { parseDestinations } from './util';
 import { Options, Channel } from 'amqplib';
 import * as assert from 'assert-plus';
+import { PublishOp, PublisherMiddleware } from './publisher-middleware';
 
 export class Publisher {
   private options: PublisherOptions;
@@ -17,11 +12,9 @@ export class Publisher {
 
   constructor(provider: ChannelProvider, options?: PublisherOptions) {
     this.provider = provider;
-    this.options = options || { useDefaultCoercions: true };
+    this.options = options || { useDefaultMiddleware: true };
     const middleware = new Pipeline<PublishOp>();
-    this.middleware = this.options.useDefaultCoercions
-      ? middleware.add([publisherEncodeString, publisherEncodeObject, publisherContentEncoding])
-      : middleware;
+    this.middleware = this.options.useDefaultMiddleware ? middleware.add(PublisherMiddleware.default) : middleware;
   }
 
   async channel(): Promise<Channel> {
