@@ -35,6 +35,7 @@
     "@types/chai": "^4.2.9",
     "@types/content-type": "^1.1.3",
     "@types/crc": "^3.4.0",
+    "@types/debug": "^4.1.5",
     "@types/mocha": "^7.0.1",
     "@typescript-eslint/eslint-plugin": "^2.20.0",
     "@typescript-eslint/parser": "^2.20.0",
@@ -82,6 +83,7 @@
     "assert-plus": "^1.0.0",
     "content-type": "^1.0.4",
     "crc": "^3.8.0",
+    "debug": "^4.1.1",
     "json-ptr": "^1.2.0-ts.da6e2a1",
     "middles": "0.0.3"
   }

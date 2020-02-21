@@ -94,7 +94,7 @@ describe('Broker', () => {
         observed.close.push(ev.source);
       });
       await broker.connect();
-      await broker.channel(true);
+      await broker.confirmChannel();
     } finally {
       await broker.close();
     }
@@ -116,7 +116,7 @@ describe('Broker', () => {
       const broker = new Broker(uri);
       try {
         await broker.connect();
-        await broker.channel(true);
+        await broker.confirmChannel();
       } finally {
         await broker.close();
       }
@@ -125,7 +125,7 @@ describe('Broker', () => {
       const broker = new Broker(uri);
       try {
         await broker.connect();
-        await broker.channel(false);
+        await broker.channel();
       } finally {
         await broker.close();
       }

@@ -1,8 +1,7 @@
 import * as assert from 'assert-plus';
 import * as amqp from 'amqplib';
-import { Publisher } from './publisher';
 import { Options } from 'amqplib';
-import { LoggingLevel, MiddlewareLog } from './common';
+import { LoggingLevel, MiddlewareLog, Publisher } from './common';
 
 const $channel = Symbol('channel');
 const $publisher = Symbol('publisher');
@@ -37,34 +36,22 @@ export class Message {
   /**
    * Creates a new instance.
    * @param channel the AMQP channel the message arrived on
-   * @param publisher a publisher used to communicate in response to the message
    * @param message the raw message from the underlying amqplib
    * @param consumerAck indicates that the consumer must acknowledge or reject the message during processing
-   * @param decodedContent decoded or prepared content
+   * @param publisher an optional publisher, if present enables reply method.
    */
-  constructor(
-    channel: amqp.Channel,
-    publisher: Publisher,
-    message: amqp.Message,
-    consumerAck: boolean,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    decodedContent?: any
-  ) {
+  constructor(channel: amqp.Channel, message: amqp.Message, consumerAck: boolean, publisher?: Publisher) {
     assert.object(channel, 'channel');
-    assert.object(publisher, 'publisher');
     assert.object(message, 'message');
     assert.bool(consumerAck, 'consumerAck');
     const { fields, properties, content } = message;
     this[$channel] = channel;
-    this[$channel].on('close', () => {
-      this[$channel] = null;
-    });
     this[$publisher] = publisher;
     this[$message] = message;
     this[$ackState] = consumerAck ? AckStates.Needed : AckStates.None;
     this.fields = fields;
     this.properties = properties;
-    this.content = decodedContent || content;
+    this.content = content;
   }
 
   get destination(): string {
