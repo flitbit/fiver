@@ -87,4 +87,26 @@ export class PublisherMiddleware {
       options,
     };
   }
+
+  /**
+   * Ensures that the message's options indicate the message should be treated
+   * persistent by the broker.
+   *
+   * @param op the incoming op
+   */
+  static persistentMessages(op: PublishOp): PublishOp {
+    const { destinations, content, options } = op;
+    if (options && options.persistent) {
+      return {
+        destinations,
+        content,
+        options,
+      };
+    }
+    return {
+      destinations,
+      content,
+      options: Object.assign(options || {}, { persistent: true }),
+    };
+  }
 }
