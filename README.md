@@ -1,4 +1,4 @@
-# fiver &middot; [![npm](https://img.shields.io/npm/v/npm.svg?style=flat-square)](https://www.npmjs.com/package/npm) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/flitbit/fiver/blob/master/LICENSE)
+# fiver &middot; [![CircleCI](https://circleci.com/gh/flitbit/fiver.svg?style=svg)](https://circleci.com/gh/flitbit/fiver) [![npm](https://img.shields.io/npm/v/npm.svg?style=flat-square)](https://www.npmjs.com/package/npm) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/flitbit/fiver/blob/master/LICENSE)
 > A runt of a RabbitMQ client
 
 **fiver** is a small, opinionated, RabbitMQ client for Nodejs that overlays my preferred AMQP patterns on the ubiquitous [amqplib](http://www.squaremobius.net/amqp.node/channel_api.html#overview).
