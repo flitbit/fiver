@@ -5,7 +5,7 @@ import { connect, Connection, Options, ConfirmChannel, Channel, Replies } from '
 
 import { PublisherOptions, ChannelProvider, BrokerOptions, Publisher } from './common';
 import { PublisherImpl } from './publisher';
-import { makeErrorPropagation, Cleanup, makeCleanupPropagation, addCleanupTask, iid } from './cleanup';
+import { cleanupPropagationEvent, addCleanupTask, iid } from 'cleanup-util';
 
 const debug = dbg('fiver:broker');
 
@@ -17,9 +17,11 @@ interface Channels {
 export type ExchangeType = 'direct' | 'topic' | 'headers' | 'fanout';
 
 const $connection = Symbol('connection');
+const $publisher = Symbol('publisher');
 
 export class Broker extends EventEmitter implements ChannelProvider {
   private [$connection]: Connection;
+  private [$publisher]: Publisher;
   private uriOrOptions: string | Options.Connect;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private socketOptions: any;
@@ -38,10 +40,10 @@ export class Broker extends EventEmitter implements ChannelProvider {
     this.channels = {};
     this.on('close', ({ source }) => {
       if (source === 'self') {
-        debug(`Broker ${iid(this)} closed`);
+        debug(`${iid(this)} closed`);
       }
     });
-    debug(`constructed Broker ${iid(this)}`);
+    debug(`new ${iid(this)}`);
   }
 
   async connect(): Promise<Connection> {
@@ -50,18 +52,35 @@ export class Broker extends EventEmitter implements ChannelProvider {
     }
     const { uriOrOptions, socketOptions } = this;
     const cn = await connect(uriOrOptions, socketOptions);
-    this[$connection] = cn;
-    const errHandler = makeErrorPropagation('connection', (cn as unknown) as Cleanup, this);
-    const closeHandler = makeCleanupPropagation('connection', 'close', (cn as unknown) as Cleanup, this);
+    cleanupPropagationEvent(
+      cn,
+      'close',
+      () => {
+        this.emit('close', {
+          source: 'connection',
+          sender: cn,
+        });
+      },
+      this
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errHandler = (e: any): void => {
+      this.emit('error', {
+        source: 'connection',
+        sender: cn,
+        error: e,
+      });
+    };
     cn.on('error', errHandler);
-    cn.once('close', closeHandler);
-    addCleanupTask((cn as unknown) as Cleanup, () => {
+    addCleanupTask(cn, this, () => {
       if (this[$connection] === cn) {
-        debug(`Broker ${iid(this)} cleaned up connection ${iid(cn)}`);
+        debug(`${iid(this)} cleaned up ${iid(cn)}`);
         this[$connection] = null;
       }
+      this.removeListener('error', errHandler);
     });
-    debug(`Broker ${iid(this)} using connection ${iid(cn)}`);
+    debug(`${iid(this)} using ${iid(cn)}`);
+    this[$connection] = cn;
     this.emit('connect', { source: 'connection', data: cn });
     return cn;
   }
@@ -76,18 +95,35 @@ export class Broker extends EventEmitter implements ChannelProvider {
     }
     const cn = await this.connect();
     const ch = await cn.createConfirmChannel();
-    const errHandler = makeErrorPropagation('confirmChannel', (ch as unknown) as Cleanup, this);
-    const closeHandler = makeCleanupPropagation('confirmChannel', 'close', (ch as unknown) as Cleanup, this);
+    cleanupPropagationEvent(
+      ch,
+      'close',
+      () => {
+        this.emit('close', {
+          source: 'confirmChannel',
+          sender: ch,
+        });
+      },
+      this
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errHandler = (e: any): void => {
+      this.emit('error', {
+        source: 'confirmChannel',
+        sender: ch,
+        error: e,
+      });
+    };
     ch.on('error', errHandler);
-    ch.once('close', closeHandler);
-    addCleanupTask((ch as unknown) as Cleanup, () => {
+    addCleanupTask(ch, this, () => {
       if (channels.confirming === ch) {
-        debug(`Broker ${iid(this)} cleaned up confirmChannel ${iid(ch)}`);
+        debug(`${iid(this)} cleaned up ${iid(ch)}`);
         channels.confirming = null;
       }
+      this.removeListener('error', errHandler);
     });
     this.emit('channel', { source: 'confirmChannel', data: ch });
-    debug(`Broker ${iid(this)} using confirmChannel ${iid(ch)}`);
+    debug(`${iid(this)} using ${iid(ch)}`);
     return (channels.confirming = ch);
   }
 
@@ -102,29 +138,66 @@ export class Broker extends EventEmitter implements ChannelProvider {
     }
     const cn = await this.connect();
     const ch = await cn.createChannel();
-    const errHandler = makeErrorPropagation('channel', (ch as unknown) as Cleanup, this);
-    const closeHandler = makeCleanupPropagation('channel', 'close', (ch as unknown) as Cleanup, this);
+    cleanupPropagationEvent(
+      ch,
+      'close',
+      () => {
+        this.emit('close', {
+          source: 'channel',
+          sender: ch,
+        });
+      },
+      this
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errHandler = (e: any): void => {
+      this.emit('error', {
+        source: 'channel',
+        sender: ch,
+        error: e,
+      });
+    };
     ch.on('error', errHandler);
-    ch.once('close', closeHandler);
-    addCleanupTask((ch as unknown) as Cleanup, () => {
+    addCleanupTask(ch, this, () => {
       if (channels.normal === ch) {
-        debug(`Broker ${iid(this)} cleaned up channel ${iid(ch)}`);
+        debug(`${iid(this)} cleaned up ${iid(ch)}`);
         channels.normal = null;
       }
+      this.removeListener('error', errHandler);
     });
     this.emit('channel', { source: 'channel', data: ch });
-    debug(`Broker ${iid(this)} using channel ${iid(ch)}`);
+    debug(`${iid(this)} using ${iid(ch)}`);
     return (channels.normal = ch);
   }
 
-  async assertQueue(name?: string, options?: Options.AssertQueue): Promise<Replies.AssertQueue> {
+  async assertQueue(queue?: string, options?: Options.AssertQueue): Promise<Replies.AssertQueue> {
     const ch = await this.channel();
-    return ch.assertQueue(name || '', options);
+    return ch.assertQueue(queue || '', options);
   }
 
-  async checkQueue(name: string): Promise<Replies.AssertQueue> {
+  async checkQueue(queue: string): Promise<Replies.AssertQueue> {
     const ch = await this.channel();
-    return ch.checkQueue(name);
+    return ch.checkQueue(queue);
+  }
+
+  async deleteQueue(queue: string): Promise<Replies.DeleteQueue> {
+    const ch = await this.channel();
+    return ch.deleteQueue(queue);
+  }
+
+  async purgeQueue(queue: string): Promise<Replies.PurgeQueue> {
+    const ch = await this.channel();
+    return ch.purgeQueue(queue);
+  }
+
+  async bindQueue<ArgsT>(queue: string, source: string, pattern: string, args?: ArgsT): Promise<Replies.Empty> {
+    const ch = await this.channel();
+    return ch.bindQueue(queue, source, pattern, args);
+  }
+
+  async unbindQueue<ArgsT>(queue: string, source: string, pattern: string, args?: ArgsT): Promise<Replies.Empty> {
+    const ch = await this.channel();
+    return ch.unbindQueue(queue, source, pattern, args);
   }
 
   async assertExchange(
@@ -141,8 +214,91 @@ export class Broker extends EventEmitter implements ChannelProvider {
     return ch.checkExchange(name);
   }
 
+  async deleteExchange(name: string): Promise<Replies.Empty> {
+    const ch = await this.channel();
+    return ch.deleteExchange(name);
+  }
+
+  async bindExchange<ArgsT>(
+    destination: string,
+    source: string,
+    pattern: string,
+    args?: ArgsT
+  ): Promise<Replies.Empty> {
+    const ch = await this.channel();
+    return ch.bindExchange(destination, source, pattern, args);
+  }
+
+  async unbindExchange<ArgsT>(
+    destination: string,
+    source: string,
+    pattern: string,
+    args?: ArgsT
+  ): Promise<Replies.Empty> {
+    const ch = await this.channel();
+    return ch.unbindExchange(destination, source, pattern, args);
+  }
+
   createPublisher(options?: PublisherOptions): Publisher {
     return new PublisherImpl(this, options);
+  }
+
+  publisher(): Publisher {
+    if (this[$publisher]) {
+      return this[$publisher];
+    }
+    const { publisherOptions } = this.options;
+    const pub = new PublisherImpl(this, publisherOptions);
+    cleanupPropagationEvent(
+      pub,
+      'close',
+      () => {
+        this.emit('close', {
+          source: 'publisher',
+          sender: pub,
+        });
+      },
+      this,
+      'close'
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errHandler = (e: any): void => {
+      this.emit('error', {
+        source: 'publisher',
+        sender: pub,
+        error: e,
+      });
+    };
+    pub.on('error', errHandler);
+    addCleanupTask(pub, this, () => {
+      if (this[$publisher] === pub) {
+        debug(`${iid(this)} cleaned up ${iid(pub)}`);
+        this[$publisher] = null;
+      }
+      this.removeListener('error', errHandler);
+    });
+    debug(`${iid(this)} using ${iid(pub)}`);
+    this[$publisher] = pub;
+    this.emit('publisher', { source: 'publisher', data: pub });
+    return pub;
+  }
+
+  async publish(
+    destination: string | string[],
+    content: string | object | Buffer,
+    options?: Options.Publish
+  ): Promise<Channel> {
+    const publisher = await this.publisher();
+    return await publisher.publish(destination, content, options);
+  }
+
+  async sendToQueue(queue: string, content: string | object | Buffer, options?: Options.Publish): Promise<Channel> {
+    const publisher = await this.publisher();
+    return await publisher.publish(queue, content, options);
+  }
+
+  async prefetch(n: number): Promise<Replies.Empty> {
+    return (await this.channel()).prefetch(n);
   }
 
   async close(): Promise<void> {
@@ -151,6 +307,9 @@ export class Broker extends EventEmitter implements ChannelProvider {
       const {
         channels: { confirming, normal },
       } = this;
+      if (this[$publisher]) {
+        this[$publisher].close();
+      }
       if (confirming) {
         confirming.close();
       }

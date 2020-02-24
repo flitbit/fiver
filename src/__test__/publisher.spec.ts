@@ -61,7 +61,7 @@ describe('Publisher', () => {
         withPublisher(broker, async publisher => {
           const q = await broker.assertQueue('', { autoDelete: true });
           const messages: string[] = [];
-          const consumer = new Consumer(publisher);
+          const consumer = new Consumer(broker);
           try {
             consumer.on('message', (msg: Message) => {
               const m = `Hello ${msg.content}`;

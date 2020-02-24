@@ -26,6 +26,11 @@ describe('util', () => {
         expected: [':wargs'],
       },
       {
+        title: 'destination (string) only (exchange)',
+        dest: 'tasks:',
+        expected: ['tasks:'],
+      },
+      {
         title: 'destination (string) (exchange:routingKey)',
         dest: 'peeps:wilbur',
         expected: ['peeps:wilbur'],

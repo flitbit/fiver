@@ -110,7 +110,7 @@ export class Message {
     return this;
   }
 
-  ack(allUpTo: boolean): void {
+  ack(allUpTo?: boolean): void {
     if (!this[$channel]) {
       throw new Error('Invalid state; channel closed');
     }
@@ -120,7 +120,7 @@ export class Message {
     }
   }
 
-  nack(allUpTo: boolean, requeue: boolean): void {
+  nack(allUpTo?: boolean, requeue?: boolean): void {
     if (!this[$channel]) {
       throw new Error('Invalid state; channel closed');
     }
@@ -130,7 +130,7 @@ export class Message {
     }
   }
 
-  reject(requeue: boolean): void {
+  reject(requeue?: boolean): void {
     if (!this[$channel]) {
       throw new Error('Invalid state; channel closed');
     }

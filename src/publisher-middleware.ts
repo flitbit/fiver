@@ -1,14 +1,7 @@
 import { gzipSync, deflateSync } from 'zlib';
-import { Options } from 'amqplib';
 
-import { Destination } from './util';
 import { crc32 } from 'crc';
-
-export interface PublishOp {
-  destinations: Destination[];
-  content: string | object | Buffer;
-  options?: Options.Publish;
-}
+import { PublishOp } from './common';
 
 type M = (op: PublishOp) => Promise<PublishOp> | PublishOp;
 

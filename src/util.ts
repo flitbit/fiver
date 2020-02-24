@@ -6,7 +6,7 @@ export interface Destination {
 }
 
 function destinationsFromRoutingKeys(exchange: string, routingKeys: string, destinations: Destination[]): void {
-  if (typeof exchange === 'string' && routingKeys) {
+  if (typeof exchange === 'string' && typeof routingKeys === 'string') {
     const keys = routingKeys.split(',');
     const len = keys.length;
     let i = -1;
@@ -35,7 +35,7 @@ export function parseDestinations(destination: string | string[]): Destination[]
       const dd = d[j].split(':');
       if (dd.length > 1) {
         destinationsFromRoutingKeys(dd[0].trim(), dd[1], results);
-      } else {
+      } else if (dd[0]) {
         destinationsFromRoutingKeys('', dd[0], results);
       }
     }

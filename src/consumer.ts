@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 import { ConsumerOptions, ChannelProvider } from './common';
 import { Message } from './message';
 import { ConsumerMiddleware } from './consumer-middleware';
-import { makeErrorPropagation, Cleanup, makeCleanupPropagation, addCleanupTask, iid } from './cleanup';
+import { addCleanupTask, iid, cleanupPropagationEvent } from 'cleanup-util';
 
 const debug = dbg('fiver:consumer');
 
@@ -37,45 +37,66 @@ export class Consumer extends EventEmitter {
     // ensure we get the message first.
     this.on('message', this.handler.bind(this));
     this.on('close', () => {
-      debug(`Consumer ${iid(this)} closed`);
+      debug(`${iid(this)} closed`);
     });
     this.on('canceled', () => {
-      debug(`Consumer ${iid(this)} canceled`);
+      debug(`${iid(this)} canceled`);
     });
-    debug(`constructed Consumer ${iid(this)}`);
+    debug(`new ${iid(this)}`);
   }
 
   async channel(): Promise<Channel> {
-    if (!this[$channel]) {
-      const {
-        provider,
-        options: { publisher, publisherConfirms },
-      } = this;
-      // prefer to use the same channel as the publisher.
-      const ch = await (publisher ? publisher.channel() : provider.channel(publisherConfirms));
-      const errHandler = makeErrorPropagation('connection', (ch as unknown) as Cleanup, this);
-      const closeHandler = makeCleanupPropagation('connection', 'close', (ch as unknown) as Cleanup, this);
-      ch.on('error', errHandler);
-      ch.on('close', closeHandler);
-      addCleanupTask((ch as unknown) as Cleanup, () => {
-        if (this[$channel]) {
-          debug(`Consumer ${iid(this)} cleaned up channel ${iid(this[$channel])}`);
-          this[$channel] = null;
-        }
-      });
-      this[$channel] = ch;
+    if (this[$channel]) {
+      return this[$channel];
     }
-    return this[$channel];
+    const {
+      provider,
+      options: { publisher, publisherConfirms },
+    } = this;
+    // prefer to use the same channel as the publisher.
+    const ch = await (publisher ? publisher.channel() : provider.channel(publisherConfirms));
+    cleanupPropagationEvent(
+      ch,
+      'close',
+      () => {
+        this.emit('close', {
+          source: 'channel',
+          sender: ch,
+        });
+      },
+      this
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errHandler = (e: any): void => {
+      this.emit('error', {
+        source: 'channel',
+        sender: ch,
+        error: e,
+      });
+    };
+    ch.on('error', errHandler);
+    addCleanupTask(ch, this, () => {
+      if (this[$channel] === ch) {
+        debug(`${iid(this)} cleaned up ${iid(ch)}`);
+        this[$channel] = null;
+      }
+      this.removeListener('error', errHandler);
+    });
+    debug(`${iid(this)} using ${iid(ch)}`);
+    this[$channel] = ch;
+    return ch;
   }
 
   async consume(queue: string, options?: Options.Consume): Promise<void> {
-    const ch = await this.channel();
-    this[$channel] = ch;
     const {
       options: { publisher },
     } = this;
     // resolve the confusing double-negative on acknowledging messages.
-    const consumerAck: boolean = options && !options.noAck;
+    let consumerAck = false;
+    if (options && !options.noAck) {
+      consumerAck = true;
+    }
+    const ch = await this.channel();
     const consumer = await ch.consume(
       queue,
       async message => {
@@ -93,11 +114,11 @@ export class Consumer extends EventEmitter {
       },
       options
     );
-    debug(`Consumer ${iid(this)} opened tag ${consumer.consumerTag}`);
+    debug(`${iid(this)} opened tag ${consumer.consumerTag}`);
     this.consumerTag = consumer.consumerTag;
     this.once('canceled', () => {
       this.consumerTag = null;
-      debug(`Consumer ${iid(this)} canceled tag ${consumer.consumerTag}`);
+      debug(`${iid(this)} canceled tag ${consumer.consumerTag}`);
     });
   }
 
@@ -117,8 +138,8 @@ export class Consumer extends EventEmitter {
 
   async close(): Promise<void> {
     if (this[$channel]) {
+      await this.cancel();
       this.emit('close', { source: 'self' });
-      return this.cancel();
     }
   }
 }

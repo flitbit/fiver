@@ -1,19 +1,19 @@
 import * as assert from 'assert-plus';
 import * as dbg from 'debug';
-import { Pipeline } from 'middles';
+import { Pipeline, Middleware } from 'middles';
 import { Options, Channel, ConfirmChannel } from 'amqplib';
 import { EventEmitter } from 'events';
 
 import { parseDestinations } from './util';
-import { PublisherOptions, ChannelProvider } from './common';
-import { PublishOp, PublisherMiddleware } from './publisher-middleware';
-import { makeErrorPropagation, Cleanup, makeCleanupPropagation, addCleanupTask, iid } from './cleanup';
+import { PublisherOptions, ChannelProvider, Publisher, PublishOp } from './common';
+import { PublisherMiddleware } from './publisher-middleware';
+import { addCleanupTask, iid, cleanupPropagationEvent } from 'cleanup-util';
 
 const debug = dbg('fiver:publisher');
 
 const $channel = Symbol('channel');
 
-export class PublisherImpl<C> extends EventEmitter {
+export class PublisherImpl extends EventEmitter implements Publisher {
   private [$channel]: Channel;
   private options: PublisherOptions;
   private middleware: Pipeline<PublishOp>;
@@ -24,32 +24,57 @@ export class PublisherImpl<C> extends EventEmitter {
     this.provider = provider;
     this.options = options || { useDefaultMiddleware: true };
     const middleware = new Pipeline<PublishOp>();
-    this.middleware = this.options.useDefaultMiddleware ? middleware.add(PublisherMiddleware.default) : middleware;
+    this.middleware = this.options.useDefaultMiddleware
+      ? middleware.add(PublisherMiddleware.default)
+      : middleware.add(PublisherMiddleware.publisherEncodeString);
     this.on('close', ({ source }) => {
       if (source === 'self') {
-        debug(`Publisher ${iid(this)} closed`);
+        debug(`${iid(this)} closed`);
       }
     });
-    debug(`constructed Publisher ${iid(this)}`);
+    debug(`new ${iid(this)}`);
+  }
+
+  add(middleware: Middleware<PublishOp>): Publisher {
+    this.middleware.add(middleware);
+    return this;
   }
 
   async channel(): Promise<Channel> {
-    if (!this[$channel]) {
-      const ch = await this.provider.channel(this.options.publisherConfirms);
-      const errHandler = makeErrorPropagation('connection', (ch as unknown) as Cleanup, this);
-      const closeHandler = makeCleanupPropagation('connection', 'close', (ch as unknown) as Cleanup, this);
-      ch.on('error', errHandler);
-      ch.once('close', closeHandler);
-      addCleanupTask((ch as unknown) as Cleanup, () => {
-        if (this[$channel]) {
-          debug(`Publisher ${iid(this)} cleaned up channel ${iid(this[$channel])}`);
-          this[$channel] = null;
-        }
-      });
-      this[$channel] = ch;
-      debug(`Publisher ${iid(this)} using channel ${iid(this[$channel])}`);
+    if (this[$channel]) {
+      return this[$channel];
     }
-    return this[$channel];
+    const ch = await this.provider.channel(this.options.publisherConfirms);
+    cleanupPropagationEvent(
+      ch,
+      'close',
+      () => {
+        this.emit('close', {
+          source: 'channel',
+          sender: ch,
+        });
+      },
+      this
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errHandler = (e: any): void => {
+      this.emit('error', {
+        source: 'channel',
+        sender: ch,
+        error: e,
+      });
+    };
+    ch.on('error', errHandler);
+    addCleanupTask(ch, this, () => {
+      if (this[$channel] === ch) {
+        debug(`Broker ${iid(this)} cleaned up ${iid(ch)}`);
+        this[$channel] = null;
+      }
+      this.removeListener('error', errHandler);
+    });
+    debug(`${iid(this)} using ${iid(ch)}`);
+    this[$channel] = ch;
+    return ch;
   }
 
   async publish(
@@ -58,8 +83,9 @@ export class PublisherImpl<C> extends EventEmitter {
     options?: Options.Publish
   ): Promise<Channel> {
     assert.optionalObject(options, 'options');
+    const destinations = parseDestinations(destination);
     const op = await this.middleware.push<PublishOp>({
-      destinations: parseDestinations(destination),
+      destinations,
       content,
       options,
     });
@@ -68,31 +94,35 @@ export class PublisherImpl<C> extends EventEmitter {
     let i = -1;
     while (++i < len) {
       const { exchange, routingKey } = op.destinations[i];
-      if (!ch.publish(exchange, routingKey, op.content as Buffer, op.options)) {
+      if (!ch.publish(exchange, routingKey, op.content as Buffer, op.options || {})) {
         // Wait for the channel to emit a drain event...
         const drain: boolean[] = [];
         ch.once('drain', () => {
           drain.push(true);
         });
+        debug(`${iid(this)} waiting for ${iid(ch)} to drain`);
         await new Promise((resolve, reject) => {
           // double-check that we still need to wait; our promise setup may have
           // caused us to loose a race with the drain event.
           if (drain.length) resolve();
           const fail = (): void => {
-            debug(`Publisher ${iid(this)}: channel ${iid(ch)} failed while waiting for drain`);
-            reject(new Error('Channel closed while waiting for drain.'));
+            debug(`${iid(this)}: ${iid(ch)} failed while waiting for drain`);
+            reject(new Error(`${iid(ch)} closed while waiting for drain.`));
           };
           ch.once('close', fail);
           ch.once('drain', () => {
             resolve();
             ch.removeListener('close', fail);
+            debug(`${iid(this)} received drain event from ${iid(ch)}`);
           });
         });
       }
     }
     const { publisherConfirms, autoConfirm } = this.options;
-    if (publisherConfirms && autoConfirm) {
+    if (i && publisherConfirms && autoConfirm) {
+      debug(`${iid(this)} waiting for confirms`);
       await (ch as ConfirmChannel).waitForConfirms();
+      debug(`${iid(this)} confirmed`);
     }
     return ch;
   }

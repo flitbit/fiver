@@ -1,23 +1,32 @@
 import { Channel, Options } from 'amqplib';
-
-export interface BrokerOptions {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  socketOptions?: any;
-}
+import { Destination } from './util';
+import { Middleware } from 'middles';
 
 export interface ChannelProvider {
   channel(publisherConfirms?: boolean): Promise<Channel>;
 }
 
+export interface PublishOp {
+  destinations: Destination[];
+  content: string | object | Buffer;
+  options?: Options.Publish;
+}
+
 export interface Publisher {
+  add(middleware: Middleware<PublishOp>): Publisher;
   channel(): Promise<Channel>;
   publish(
     destination: string | string[],
     content: string | object | Buffer,
     options?: Options.Publish
   ): Promise<Channel>;
-
   close(): void;
+}
+
+export interface BrokerOptions {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  socketOptions?: any;
+  publisherOptions?: PublisherOptions;
 }
 
 export type PublisherOp<T> = (publisher: Publisher) => Promise<T>;

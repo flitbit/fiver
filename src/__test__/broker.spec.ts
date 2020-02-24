@@ -73,6 +73,10 @@ describe('Broker', () => {
     const observed = { close: [''] };
     const broker = new Broker(uri);
     try {
+      broker.on('disconnect', (ev: BrokerEvent): void => {
+        console.log(`disconnect event from ${ev.source}`);
+        observed.close.push(ev.source);
+      });
       broker.on('close', (ev: BrokerEvent): void => {
         console.log(`close event from ${ev.source}`);
         observed.close.push(ev.source);
