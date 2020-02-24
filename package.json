@@ -1,6 +1,6 @@
 {
   "name": "fiver",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "An undersized, opinionated, RabbitMQ library for common messaging patterns in Nodejs.",
   "main": "dist/index.js",
   "keywords": [
