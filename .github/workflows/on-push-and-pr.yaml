@@ -59,6 +59,11 @@ jobs:
       - name: build
         run: npm run build
 
+      - name: Dump Github context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "${GITHUB_CONTEXT}"
+
       - name: make pre-release tag
         run: |
           npm i -g json semver
