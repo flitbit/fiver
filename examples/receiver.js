@@ -1,5 +1,6 @@
-import { Broker, Consumer, Message } from '../dist';
-import { blockUntilCount } from './util';
+/* eslint-disable @typescript-eslint/no-var-requires */
+const { Broker, Consumer } = require('../');
+const { blockUntilCount } = require('./util');
 
 let count = 1;
 const args = process.argv.slice(2);
@@ -18,20 +19,20 @@ const transient = {
 
 const queue = 'hello';
 
-const receiver = async (): Promise<void> => {
+const receiver = async () => {
   const broker = new Broker(uri);
   try {
     await broker.assertQueue(queue, transient);
     const consumer = new Consumer(broker);
     try {
-      const messages: string[] = [];
+      const messages = [];
 
-      consumer.on('message-error', (m: Message): void => {
+      consumer.on('message-error', (m) => {
         console.log(`message-error: ${m.content}`);
         messages.push(m.content.toString()); // let the waiting process know we've received
       });
 
-      consumer.on('message', (m: Message): void => {
+      consumer.on('message', (m) => {
         console.log(`message: ${m.content}`);
         messages.push(m.content.toString()); // let the waiting process know we've received
       });
@@ -49,4 +50,4 @@ const receiver = async (): Promise<void> => {
 
 Promise.resolve()
   .then(receiver)
-  .catch(e => console.error(`An unexpected error occurred: ${e.stack || e}`));
+  .catch((e) => console.error(`An unexpected error occurred: ${e.stack || e}`));

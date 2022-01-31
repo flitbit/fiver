@@ -1,13 +1,13 @@
-import { Broker } from '../dist';
-import { Options } from 'amqplib';
-import { delay, awaitShutdown, blockUntilCount } from './util';
-import { EOL } from 'os';
+/* eslint-disable @typescript-eslint/no-var-requires */
+const { Broker } = require('../');
+const { delay, awaitShutdown, blockUntilCount } = require('./util');
+const { EOL } = require('os');
 
 // You need an instance of RabbitMQ running somewhere, look at this project's
 // docker-compose.yml if you want to run one locally for testing.
 const uri = process.env.AMQP_URI || 'amqp://guest:guest@localhost:5672/';
 
-const transient: Options.AssertQueue = {
+const transient = {
   durable: true,
   autoDelete: true,
 };
@@ -17,13 +17,13 @@ const message = 'Work task';
 
 let count = 0;
 
-const sender = async (): Promise<void> => {
+const sender = async () => {
   const broker = new Broker(uri, { publisherOptions: { publisherConfirms: true, autoConfirm: true } });
   try {
     await broker.assertQueue(queue, transient);
 
     // write tasks in the background until shutdown
-    const shuttingDown: boolean[] = [];
+    const shuttingDown = [];
     Promise.resolve()
       .then(async () => {
         while (shuttingDown.length == 0) {
@@ -47,4 +47,4 @@ const sender = async (): Promise<void> => {
 
 Promise.resolve()
   .then(sender)
-  .catch(e => console.error(`An unexpected error occurred: ${e.stack || e}`));
+  .catch((e) => console.error(`An unexpected error occurred: ${e.stack || e}`));

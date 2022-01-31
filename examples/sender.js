@@ -1,12 +1,12 @@
-import { Broker } from '../dist';
-import { Options } from 'amqplib';
-import { delay } from './util';
+/* eslint-disable @typescript-eslint/no-var-requires */
+const { Broker } = require('../');
+const { delay } = require('./util');
 
 // You need an instance of RabbitMQ running somewhere, look at this project's
 // docker-compose.yml if you want to run one locally for testing.
 const uri = process.env.AMQP_URI || 'amqp://guest:guest@localhost:5672/';
 
-const transient: Options.AssertQueue = {
+const transient = {
   durable: false,
   autoDelete: true,
 };
@@ -14,7 +14,7 @@ const transient: Options.AssertQueue = {
 const queue = 'hello';
 const message = 'Hello world';
 
-const sender = async (): Promise<void> => {
+const sender = async () => {
   // const broker = new Broker(uri, { publisherOptions: { publisherConfirms: true, autoConfirm: true } });
   const broker = new Broker(uri);
   try {
@@ -28,4 +28,4 @@ const sender = async (): Promise<void> => {
 
 Promise.resolve()
   .then(sender)
-  .catch(e => console.error(`An unexpected error occurred: ${e.stack || e}`));
+  .catch((e) => console.error(`An unexpected error occurred: ${e.stack || e}`));

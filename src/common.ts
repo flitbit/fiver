@@ -1,6 +1,6 @@
 import { Channel, Options } from 'amqplib';
 import { Destination } from './util';
-import { Middleware } from 'middles';
+import { Processor } from 'middles';
 
 export interface ChannelProvider {
   channel(publisherConfirms?: boolean): Promise<Channel>;
@@ -13,7 +13,7 @@ export interface PublishOp {
 }
 
 export interface Publisher {
-  add(middleware: Middleware<PublishOp>): Publisher;
+  use(processor: Processor<PublishOp>): Publisher;
   channel(): Promise<Channel>;
   publish(
     destination: string | string[],

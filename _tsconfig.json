@@ -1,0 +1,28 @@
+{
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules/**", "dist/**", "**/rollup.*"],
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationDir": "dist/types",
+    "allowJs": false,
+    // "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "react",
+    "lib": ["es6", "es2019"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2019",
+    "types": ["node", "jest"],
+    "removeComments": false
+  },
+  "typedocOptions": {
+    "entryPoints": ["src/index.ts"],
+    "out": "docs"
+  }
+}

@@ -1,23 +1,22 @@
-import { expect } from 'chai';
-import { parseDestinations } from '../util';
+import { parseDestinations } from './util';
 
 describe('util', () => {
   describe('parseDestinations(destination)', () => {
     it('throws when destination undefined', () => {
       expect(() => {
-        parseDestinations(undefined);
-      }).to.throw('destination (string | string[]) is required');
+        parseDestinations(undefined as unknown as string);
+      }).toThrow('destination (string | string[]) is required');
     });
     it('throws when destination is null', () => {
       expect(() => {
-        parseDestinations(null);
-      }).to.throw('destination (string | string[]) is required');
+        parseDestinations(null as unknown as string);
+      }).toThrow('destination (string | string[]) is required');
     });
     it('succeeds when destination is string (queue name)', () => {
       const destinations = parseDestinations('wargs');
-      expect(destinations.length).to.eql(1);
-      expect(destinations[0].exchange).to.eql('');
-      expect(destinations[0].routingKey).to.eql('wargs');
+      expect(destinations.length).toEqual(1);
+      expect(destinations[0].exchange).toEqual('');
+      expect(destinations[0].routingKey).toEqual('wargs');
     });
     const tests = [
       {
@@ -81,10 +80,10 @@ describe('util', () => {
         const destinations = parseDestinations(dest).reduce((acc, { exchange, routingKey }) => {
           acc.push(`${exchange}:${routingKey}`);
           return acc;
-        }, []);
-        expect(destinations.length).to.eql(expected.length);
+        }, [] as string[]);
+        expect(destinations.length).toEqual(expected.length);
         for (const item of expected) {
-          expect(destinations).to.contain(item);
+          expect(destinations).toContain(item);
         }
       });
     }

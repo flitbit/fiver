@@ -1,4 +1,3 @@
-releases/
-coverage/
 dist/
-docs/
+node_modules/
+coverage/

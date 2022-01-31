@@ -1,5 +1,5 @@
 import * as assert from 'assert-plus';
-import * as dbg from 'debug';
+import dbg from 'debug';
 import { EventEmitter } from 'events';
 import { connect, Connection, Options, ConfirmChannel, Channel, Replies } from 'amqplib';
 
@@ -7,7 +7,7 @@ import { PublisherOptions, ChannelProvider, BrokerOptions, Publisher } from './c
 import { PublisherImpl } from './publisher';
 import { cleanupPropagationEvent, addCleanupTask, iid } from 'cleanup-util';
 
-const debug = dbg('fiver:broker');
+const debug = dbg.debug('fiver:broker');
 
 interface Channels {
   normal?: Channel;
@@ -20,8 +20,8 @@ const $connection = Symbol('connection');
 const $publisher = Symbol('publisher');
 
 export class Broker extends EventEmitter implements ChannelProvider {
-  private [$connection]: Connection;
-  private [$publisher]: Publisher;
+  private [$connection]: Connection | null;
+  private [$publisher]: Publisher | null;
   private uriOrOptions: string | Options.Connect;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private socketOptions: any;
@@ -48,7 +48,8 @@ export class Broker extends EventEmitter implements ChannelProvider {
 
   async connect(): Promise<Connection> {
     if (this[$connection]) {
-      return this[$connection];
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return this[$connection]!;
     }
     const { uriOrOptions, socketOptions } = this;
     const cn = await connect(uriOrOptions, socketOptions);
@@ -117,8 +118,8 @@ export class Broker extends EventEmitter implements ChannelProvider {
     ch.on('error', errHandler);
     addCleanupTask(ch, this, () => {
       if (channels.confirming === ch) {
-        debug(`${iid(this)} cleaned up ${iid(ch)}`);
-        channels.confirming = null;
+        // debug(`${iid(this)} cleaned up ${iid(ch)}`);
+        channels.confirming = undefined;
       }
       this.removeListener('error', errHandler);
     });
@@ -161,7 +162,7 @@ export class Broker extends EventEmitter implements ChannelProvider {
     addCleanupTask(ch, this, () => {
       if (channels.normal === ch) {
         debug(`${iid(this)} cleaned up ${iid(ch)}`);
-        channels.normal = null;
+        channels.normal = undefined;
       }
       this.removeListener('error', errHandler);
     });
@@ -245,7 +246,8 @@ export class Broker extends EventEmitter implements ChannelProvider {
 
   publisher(): Publisher {
     if (this[$publisher]) {
-      return this[$publisher];
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return this[$publisher]!;
     }
     const { publisherOptions } = this.options;
     const pub = new PublisherImpl(this, publisherOptions);
@@ -308,7 +310,8 @@ export class Broker extends EventEmitter implements ChannelProvider {
         channels: { confirming, normal },
       } = this;
       if (this[$publisher]) {
-        this[$publisher].close();
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        this[$publisher]!.close();
       }
       if (confirming) {
         confirming.close();
