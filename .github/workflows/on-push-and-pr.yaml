@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '*'
+      - '!main'
+  pull_request:
+    branches:
+      - main
+
+  # Allows triggering workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  ci_check:
+    name: CI check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+
+      - name: use node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: build and test
+        run: npm run ci
+
+  npm_pre_release:
+    name: NPM pre-release
+    runs-on: ubuntu-latest
+    needs: ci_check
+    if: "contains(github.event.head_commit.message, '#pre-release')"
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+
+      - name: use node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: build
+        run: npm run build
+
+      - name: publish pre-release
+        run: |
+          npm i -g json semver
+          PACKAGE_VERSION="$(cat package.json | json version)"
+          BRANCH_NAME=$(git symbolic-ref --short HEAD)
+          VERSION_PRE="$(semver -i prepatch --preid ${BRANCH_NAME}.$(git rev-parse --short HEAD) ${PACKAGE_VERSION})"
+          npm --no-git-tag-version version ${VERSION_PRE%.0}
+          npm publish --tag=${BRANCH_NAME}
