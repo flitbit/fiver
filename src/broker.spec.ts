@@ -1,5 +1,5 @@
-import { expect } from 'chai';
-import { Broker, BrokerEvent } from '..';
+import { Broker } from './broker';
+import { BrokerEvent } from './common';
 import { Options } from 'amqplib';
 
 const uri = process.env.AMQP_URI || 'amqp://guest:guest@localhost:5672/';
@@ -16,23 +16,23 @@ describe('Broker', () => {
   describe('.ctor(uriOrOptions, options?)', () => {
     it('throws when uriOrOptions is undefined', () => {
       expect(() => {
-        new Broker(undefined);
-      }).to.throw('uriOrOptions (string | Options.Connect) is required');
+        new Broker(undefined as unknown as string);
+      }).toThrow('uriOrOptions (string | Options.Connect) is required');
     });
     it('throws when uriOrOptions is null', () => {
       expect(() => {
-        new Broker(null);
-      }).to.throw('uriOrOptions (string | Options.Connect) is required');
+        new Broker(null as unknown as string);
+      }).toThrow('uriOrOptions (string | Options.Connect) is required');
     });
     it('succeeds when uriOrOptions specified as string', () => {
       expect(() => {
         new Broker(uri);
-      }).to.not.throw();
+      }).not.toThrow();
     });
     it('succeeds when uriOrOptions specified as Options.Connect', () => {
       expect(() => {
         new Broker(amqpOptions);
-      }).to.not.throw();
+      }).not.toThrow();
     });
   });
   describe('.connect()', () => {
@@ -49,7 +49,7 @@ describe('Broker', () => {
       try {
         await broker.connect();
       } catch (e) {
-        expect(e.message).to.eql('connect ECONNREFUSED 127.0.0.1:9999');
+        expect((e as Error).message).toEqual('connect ECONNREFUSED 127.0.0.1:9999');
       } finally {
         await broker.close();
       }
@@ -67,7 +67,7 @@ describe('Broker', () => {
     } finally {
       await broker.close();
     }
-    expect(observed.close).to.be.true;
+    expect(observed.close).toBe(true);
   });
   it('observes close events from channel', async () => {
     const observed = { close: [''] };
@@ -86,8 +86,8 @@ describe('Broker', () => {
     } finally {
       await broker.close();
     }
-    expect(observed.close).to.contain('connection');
-    expect(observed.close).to.contain('channel');
+    expect(observed.close).toContain('connection');
+    expect(observed.close).toContain('channel');
   });
   it('observes close events from confirm channel', async () => {
     const observed = { close: [''] };
@@ -102,8 +102,8 @@ describe('Broker', () => {
     } finally {
       await broker.close();
     }
-    expect(observed.close).to.contain('connection');
-    expect(observed.close).to.contain('confirmChannel');
+    expect(observed.close).toContain('connection');
+    expect(observed.close).toContain('confirmChannel');
   });
 
   describe('.channel(publisherConfirms?)', () => {

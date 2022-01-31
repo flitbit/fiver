@@ -3,11 +3,10 @@ import { parse } from 'content-type';
 import { crc32 } from 'crc';
 
 import { Message } from './message';
-
-type M = (msg: Message) => Promise<Message> | Message;
+import { AsyncProcessor } from 'middles';
 
 export class ConsumerMiddleware {
-  static get default(): M[] {
+  static get default(): AsyncProcessor<Message>[] {
     return [
       ConsumerMiddleware.consumerCrc32Check,
       ConsumerMiddleware.consumerContentDecoding,
@@ -43,7 +42,7 @@ export class ConsumerMiddleware {
       const decodedType = parse(contentType);
       if (decodedType.type.indexOf('text/') === 0) {
         // always attempt to decode text content.
-        const charset = decodedType.parameters.charset || 'utf-8';
+        const charset = (decodedType.parameters.charset || 'utf-8') as unknown as BufferEncoding;
         return msg.overrideContent(content.toString(charset));
       }
     }
@@ -60,7 +59,7 @@ export class ConsumerMiddleware {
       const decodedType = parse(contentType);
       if (decodedType.type === 'application/json') {
         // always attempt to decode json content.
-        const charset = decodedType.parameters.charset || 'utf-8';
+        const charset = (decodedType.parameters.charset || 'utf-8') as unknown as BufferEncoding;
         try {
           const obj = JSON.parse(content.toString(charset));
           msg.middlewareLog('debug', `transformed to object from ${contentType}`);

@@ -1,12 +1,11 @@
 import { gzipSync, deflateSync } from 'zlib';
+import { Processor } from 'middles';
 
 import { crc32 } from 'crc';
 import { PublishOp } from './common';
 
-type M = (op: PublishOp) => Promise<PublishOp> | PublishOp;
-
 export class PublisherMiddleware {
-  static get default(): M[] {
+  static get default(): Processor<PublishOp>[] {
     return [
       PublisherMiddleware.publisherEncodeString,
       PublisherMiddleware.publisherEncodeObject,
@@ -74,7 +73,8 @@ export class PublisherMiddleware {
   }
 
   static publisherCrc32(op: PublishOp): PublishOp {
-    const { destinations, content, options } = op;
+    const { destinations, content, options: opts } = op;
+    const options = opts || {};
     if (Buffer.isBuffer(content)) {
       if (!options.headers) {
         options.headers = {};

@@ -1,5 +1,5 @@
 import * as assert from 'assert-plus';
-import * as dbg from 'debug';
+import dbg from 'debug';
 import { Options, Channel } from 'amqplib';
 import { Pipeline } from 'middles';
 import { EventEmitter } from 'events';
@@ -7,9 +7,9 @@ import { EventEmitter } from 'events';
 import { ConsumerOptions, ChannelProvider } from './common';
 import { Message } from './message';
 import { ConsumerMiddleware } from './consumer-middleware';
-import { addCleanupTask, iid, cleanupPropagationEvent } from 'cleanup-util';
+import { addCleanupTask, cleanupPropagationEvent, iid } from 'cleanup-util';
 
-const debug = dbg('fiver:consumer');
+const debug = dbg.debug('fiver:consumer');
 
 const $channel = Symbol('channel');
 
@@ -19,12 +19,12 @@ export interface MessageError {
 }
 
 export class Consumer extends EventEmitter {
-  private [$channel]: Channel;
+  private [$channel]: Channel | null;
 
   private middleware: Pipeline<Message>;
   public options: ConsumerOptions;
   public provider: ChannelProvider;
-  public consumerTag: string;
+  public consumerTag?: string;
 
   constructor(provider: ChannelProvider, options?: ConsumerOptions) {
     super();
@@ -32,7 +32,7 @@ export class Consumer extends EventEmitter {
     this.options = options || {};
     this.middleware =
       options && options.useDefaultMiddleware
-        ? new Pipeline<Message>().add(ConsumerMiddleware.default)
+        ? new Pipeline<Message>().useAsync(...ConsumerMiddleware.default)
         : new Pipeline<Message>();
     // ensure we get the message first.
     this.on('message', this.handler.bind(this));
@@ -47,7 +47,8 @@ export class Consumer extends EventEmitter {
 
   async channel(): Promise<Channel> {
     if (this[$channel]) {
-      return this[$channel];
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return this[$channel]!;
     }
     const {
       provider,
@@ -99,14 +100,14 @@ export class Consumer extends EventEmitter {
     const ch = await this.channel();
     const consumer = await ch.consume(
       queue,
-      async message => {
+      async (message) => {
         if (message === null) {
           await this.cancel();
           return;
         }
         let msg = new Message(ch, message, consumerAck || false, publisher);
         try {
-          msg = await this.middleware.push(msg);
+          msg = await this.middleware.pushAsync(msg);
           this.emit('message', msg);
         } catch (error) {
           this.emit('message-error', { error, message: msg });
@@ -117,7 +118,7 @@ export class Consumer extends EventEmitter {
     debug(`${iid(this)} opened tag ${consumer.consumerTag}`);
     this.consumerTag = consumer.consumerTag;
     this.once('canceled', () => {
-      this.consumerTag = null;
+      this.consumerTag = undefined;
       debug(`${iid(this)} canceled tag ${consumer.consumerTag}`);
     });
   }
@@ -128,12 +129,13 @@ export class Consumer extends EventEmitter {
 
   async cancel(): Promise<void> {
     if (this.consumerTag && this[$channel]) {
-      await this[$channel].cancel(this.consumerTag);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      await this[$channel]!.cancel(this.consumerTag);
       this.emit('canceled', {
         source: 'server',
       });
     }
-    this.consumerTag = null;
+    this.consumerTag = undefined;
   }
 
   async close(): Promise<void> {

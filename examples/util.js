@@ -1,9 +1,9 @@
-export const blockUntilCount = (count: number, counter: () => number, intervalMs?: number): Promise<void> => {
-  return new Promise(resolve => {
-    const h: NodeJS.Timeout[] = [];
+const blockUntilCount = (count, counterFn, intervalMs) => {
+  return new Promise((resolve) => {
+    const h = [];
     h.push(
       setInterval(() => {
-        if (counter() >= count) {
+        if (counterFn() >= count) {
           clearInterval(h[0]);
           resolve();
         }
@@ -12,16 +12,22 @@ export const blockUntilCount = (count: number, counter: () => number, intervalMs
   });
 };
 
-export const delay = async (ms: number): Promise<void> => {
-  return new Promise(resolve => {
+const delay = async (ms) => {
+  return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 };
 
-export const awaitShutdown = async (): Promise<void> => {
+const awaitShutdown = async () => {
   await new Promise((resolve, reject) => {
     process.once('uncaughtException', reject);
     process.once('unhandledRejection', reject);
     process.once('SIGINT', resolve);
   });
+};
+
+module.exports = {
+  blockUntilCount,
+  delay,
+  awaitShutdown,
 };

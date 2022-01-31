@@ -1,6 +1,6 @@
 import * as assert from 'assert-plus';
-import * as dbg from 'debug';
-import { Pipeline, Middleware } from 'middles';
+import dbg from 'debug';
+import { Pipeline, Processor } from 'middles';
 import { Options, Channel, ConfirmChannel } from 'amqplib';
 import { EventEmitter } from 'events';
 
@@ -9,12 +9,12 @@ import { PublisherOptions, ChannelProvider, Publisher, PublishOp } from './commo
 import { PublisherMiddleware } from './publisher-middleware';
 import { addCleanupTask, iid, cleanupPropagationEvent } from 'cleanup-util';
 
-const debug = dbg('fiver:publisher');
+const debug = dbg.debug('fiver:publisher');
 
 const $channel = Symbol('channel');
 
 export class PublisherImpl extends EventEmitter implements Publisher {
-  private [$channel]: Channel;
+  private [$channel]: Channel | null;
   private options: PublisherOptions;
   private middleware: Pipeline<PublishOp>;
   public provider: ChannelProvider;
@@ -25,8 +25,8 @@ export class PublisherImpl extends EventEmitter implements Publisher {
     this.options = options || { useDefaultMiddleware: true };
     const middleware = new Pipeline<PublishOp>();
     this.middleware = this.options.useDefaultMiddleware
-      ? middleware.add(PublisherMiddleware.default)
-      : middleware.add(PublisherMiddleware.publisherEncodeString);
+      ? middleware.use(...PublisherMiddleware.default)
+      : middleware.use(PublisherMiddleware.publisherEncodeString);
     this.on('close', ({ source }) => {
       if (source === 'self') {
         debug(`${iid(this)} closed`);
@@ -35,14 +35,15 @@ export class PublisherImpl extends EventEmitter implements Publisher {
     debug(`new ${iid(this)}`);
   }
 
-  add(middleware: Middleware<PublishOp>): Publisher {
-    this.middleware.add(middleware);
+  use(processor: Processor<PublishOp>): Publisher {
+    this.middleware.use(processor);
     return this;
   }
 
   async channel(): Promise<Channel> {
     if (this[$channel]) {
-      return this[$channel];
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return this[$channel]!;
     }
     const ch = await this.provider.channel(this.options.publisherConfirms);
     cleanupPropagationEvent(
@@ -101,7 +102,7 @@ export class PublisherImpl extends EventEmitter implements Publisher {
           drain.push(true);
         });
         debug(`${iid(this)} waiting for ${iid(ch)} to drain`);
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
           // double-check that we still need to wait; our promise setup may have
           // caused us to loose a race with the drain event.
           if (drain.length) resolve();

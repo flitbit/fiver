@@ -1,7 +1,0 @@
-node_modules/
-coverage/
-docs/
-.circleci/
-.nyc_output/
-test-results.xml
-

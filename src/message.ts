@@ -22,7 +22,7 @@ const Acknowledged = AckStates.Acked | AckStates.Nacked | AckStates.Rejected;
 
 export class Message {
   private [$channel]: amqp.Channel;
-  private [$publisher]: Publisher;
+  private [$publisher]: Publisher | undefined;
   private [$message]: amqp.Message;
   private [$ackState]: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,7 +85,7 @@ export class Message {
     }
   }
 
-  get<V>(key: string): V {
+  get<V>(key: string): V | undefined {
     if (key) {
       if (this[$state]) {
         return undefined;
@@ -140,13 +140,13 @@ export class Message {
     }
   }
 
-  async reply(content: string | object | Buffer, options?: Options.Publish): Promise<amqp.Channel> {
+  async reply(content: string | object | Buffer, options?: Options.Publish): Promise<amqp.Channel | undefined> {
     assert.ok(content);
     assert.optionalObject(options, 'options');
     const {
       properties: { replyTo, correlationId },
     } = this;
     options = Object.assign(options || {}, { correlationId });
-    return this[$publisher].publish(replyTo, content, options);
+    return this[$publisher]?.publish(replyTo, content, options);
   }
 }
