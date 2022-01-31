@@ -40,8 +40,7 @@
     "preci": "npm run cibuild",
     "ci": "cross-env TS_NODE_COMPILER_OPTIONS='{ \"module\": \"commonjs\", \"noEmit\": false }' jest --coverage",
     "predocs": "shx rm -fr docs",
-    "docs": "typedoc",
-    "postdocs": "shx cp docs-overlay/* docs/",
+    "docs": "typedoc src/index.ts",
     "docs:watch": "onchange --initial \"*.md\" \"src/**/*.ts\" -- npm run docs"
   },
   "dependencies": {

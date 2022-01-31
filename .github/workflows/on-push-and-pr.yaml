@@ -30,8 +30,14 @@ jobs:
       - name: install dependencies
         run: npm ci
 
+      - name: docker-compose up
+        run: docker-compose up -d
+
       - name: build and test
         run: npm run ci
+
+      - name: docker-compose down
+        run: docker-compose down
 
   npm_pre_release:
     name: NPM pre-release

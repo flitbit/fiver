@@ -25,8 +25,14 @@ jobs:
       - name: install dependencies
         run: npm ci
 
+      - name: docker-compose up
+        run: docker-compose up -d
+
       - name: build and test
         run: npm run ci
+
+      - name: docker-compose down
+        run: docker-compose down
 
       - name: publish release
         run: npm publish
